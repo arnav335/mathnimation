@@ -1,63 +1,51 @@
 import { startAnimations } from "./startAnimations";
 
-function getElementPath(el) {
-    // Ensure the element is valid
-    if (!el) {
-        return ''; // Return an empty string if the element is invalid
-    }
-
-    const path = [];
-    let current = el;
-    while (current) {
-        const tagName = current.tagName ? current.tagName.toLowerCase() : ''; // Ensure tagName is available
-        if (!tagName) break; // Exit if tagName is invalid (for safety)
-
-        const index = Array.from(current.parentNode?.children || []).indexOf(current);
-        path.unshift(`${tagName}[${index}]`);
-        current = current.parentNode;
-    }
-    return path.join(" > ");
-}
-
+// Function to initialize draggable element
 function makeDraggable(element, animationConfig) {
-    // Generate a unique storage key
-    const storageKey = element.dataset.id
-        ? `draggable-${element.dataset.id}` // Use data-id if available
-        : `draggable-${getElementPath(element)}`; // Fallback to DOM path
+    // Check if the element has an ID
+    if (!element.id) {
+        console.error('Element must have an ID for persistence!');
+        return;
+    }
 
-    // Start the animations if they exist when initializing the element
-    startAnimations(element, animationConfig);
+    const storageKey = `draggable-${element.id}`;
 
     let isDragging = false;
     let offsetX = 0;
     let offsetY = 0;
 
-    // Load position from localStorage
+    // Load position from localStorage (if any)
     const savedPosition = JSON.parse(localStorage.getItem(storageKey));
     if (savedPosition) {
         element.style.left = `${savedPosition.left}px`;
         element.style.top = `${savedPosition.top}px`;
-        element.style.position = "absolute"; // Ensure correct positioning
+        element.style.position = "absolute";
     }
 
-    // Ensure the element is positioned absolutely for dragging
+    // Ensure absolute positioning for dragging
     if (getComputedStyle(element).position === "static") {
         element.style.position = "absolute";
     }
 
-    // Handle mouse down
+    // Track animation state
+    let animationStarted = false;
+    let tween = null;
+
+    // Handle mouse down event
     element.addEventListener("mousedown", (e) => {
         isDragging = true;
         offsetX = e.clientX - element.offsetLeft;
         offsetY = e.clientY - element.offsetTop;
 
-        // Stop all GSAP animations for this element during drag
-        gsap.killTweensOf(element);
+        // Pause GSAP animation when dragging starts
+        if (tween) {
+            tween.pause();
+        }
 
         element.style.cursor = "grabbing";
     });
 
-    // Handle mouse move
+    // Handle mouse move event
     document.addEventListener("mousemove", (e) => {
         if (isDragging) {
             const newLeft = e.clientX - offsetX;
@@ -66,18 +54,34 @@ function makeDraggable(element, animationConfig) {
             element.style.left = `${newLeft}px`;
             element.style.top = `${newTop}px`;
 
-            // Save position to localStorage
-            localStorage.setItem(storageKey, JSON.stringify({ left: newLeft, top: newTop }));
+            // Save position to localStorage using the element's ID
+            localStorage.setItem(storageKey, JSON.stringify({
+                id: element.id,
+                left: newLeft,
+                top: newTop,
+            }));
         }
     });
 
-    // Handle mouse up
+    // Handle mouse up event
     document.addEventListener("mouseup", () => {
         if (isDragging) {
             isDragging = false;
 
-            // Restart animations after dragging stops
-            startAnimations(element, animationConfig);
+            // Restart animation after dragging finishes
+            if (!animationStarted) {
+                if(animationConfig != {}){
+                    startAnimations(element, animationConfig);
+                    animationStarted = true;
+                    console.log("JS IS DUMB");
+                    
+                }
+            }
+
+            // Resume GSAP animation after dragging finishes
+            if (tween) {
+                tween.resume();
+            }
 
             element.style.cursor = "grab";
         }
@@ -85,6 +89,16 @@ function makeDraggable(element, animationConfig) {
 
     // Set initial cursor style
     element.style.cursor = "grab";
+
+    // Start initial animations when the element is created
+    if (!animationStarted) {
+        
+        if((!animationConfig)&&(typeof animationConfig == "object" && Object.keys(animationConfig).length != 0)){    
+            tween = startAnimations(element, animationConfig); // Store the tween object
+            animationStarted = true;
+        }
+      
+    }
 }
 
 export { makeDraggable };

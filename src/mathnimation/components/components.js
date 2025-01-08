@@ -1,3 +1,4 @@
-import { rectangle } from "./rectangle";
+import { arc } from "./arc.js";
+import { rectangle } from "./rectangle.js";
 
-export default { rectangle}
+export default {arc, rectangle}
